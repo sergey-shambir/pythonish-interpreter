@@ -1,0 +1,325 @@
+// All token codes are small integers with #defines that begin with "TK_"
+%token_prefix TK_
+
+// The type of the data attached to each token is Token.  This is also the
+// default type for non-terminals.
+//
+%token_type {SToken}
+%default_type {SToken}
+
+// The generated parser function takes a 4th argument as follows:
+%extra_argument {CParser *pParse}
+
+// This code runs whenever there is a syntax error
+//
+%syntax_error
+{
+    (void)yymajor;  // Silence compiler warnings.
+    pParse->OnError(TOKEN); // TOKEN has type defined in '%token_type'
+}
+
+// This code runs on LALR stack overflow
+%stack_overflow
+{
+    (void)yypMinor; // Silence compiler warnings.
+    pParse->OnStackOverflow();
+}
+
+// This code runs when parser failed and cannot recover.
+%parse_failure
+{
+    pParse->OnFatalError();
+}
+
+// Destructor set just to disable compiler warnings
+//
+%token_destructor
+{
+    (void)yypParser;
+    (void)yypminor;
+    (void)pParse;
+}
+
+// The name of the generated procedure that implements the parser
+// is as follows:
+%name ParseGrammar
+
+// The following text is included near the beginning of the C source
+// code file that implements the parser.
+//
+%include
+{
+// Generated function: void ParseGrammar(void*, int, SToken, CParser*);
+
+#include "Parser_private.h"
+
+using namespace parser_private;
+
+// Indicate that ParseGrammarFree() will never be called with a nullptr.
+#define YYPARSEFREENEVERNULL 1
+
+} // end %include
+
+/////////////////////////
+////////////////////////
+///////////////////////
+
+// An IDENTIFIER can be a generic identifier, or one of several
+// keywords.  Any non-standard keyword can also be an identifier.
+//
+%type expression ExpressionPtr
+%destructor expression { Destroy($$); }
+
+%type statement StatementPtr
+%destructor statement { Destroy($$); }
+
+%type statement_line StatementPtr
+%destructor statement_line { Destroy($$); }
+
+%type statement_list StatementListPtr
+%destructor statement_list { Destroy($$); }
+
+%type expression_list ExpressionListPtr
+%destructor expression_list { Destroy($$); }
+
+%type function_declaration FunctionPtr
+%destructor function_declaration { Destroy($$); }
+
+%type parameter_list NamesListPtr
+%destructor parameter_list { Destroy($$); }
+
+%left LESS EQUALS.
+%left AND OR NOT.
+%left PLUS MINUS.
+%left STAR SLASH PERCENT.
+
+translation_unit ::= toplevel_list .
+
+toplevel_list ::= toplevel_line.
+
+toplevel_list ::= toplevel_list toplevel_line.
+
+toplevel_line ::= toplevel_statement NEWLINE.
+
+toplevel_line ::= error NEWLINE.
+
+toplevel_line ::= NEWLINE.
+
+toplevel_statement ::= statement(A).
+{
+    pParse->AddStatement(Take(A));
+}
+
+toplevel_statement ::= function_declaration(A).
+{
+    pParse->AddFunction(Take(A));
+}
+
+function_declaration(X) ::= FUNCTION ID(A) LPAREN RPAREN NEWLINE statement_list(B) END.
+{
+    auto pBody = Take(B);
+    EmplaceAST<CFunctionAST>(X, A.stringId, std::vector<unsigned>(), std::move(*pBody));
+}
+
+function_declaration(X) ::= FUNCTION ID(A) LPAREN parameter_list(B) RPAREN NEWLINE statement_list(C) END.
+{
+    auto pParameters = Take(B);
+    auto pBody = Take(C);
+    EmplaceAST<CFunctionAST>(X, A.stringId, std::move(*pParameters), std::move(*pBody));
+}
+
+parameter_list(X) ::= ID(A).
+{
+    auto list = Make<NamesList>();
+    list->emplace_back(A.stringId);
+    X = list.release();
+}
+
+parameter_list(X) ::= parameter_list(A) COMMA ID(B).
+{
+    auto pList = Take(A);
+    pList->emplace_back(B.stringId);
+    X = pList.release();
+}
+
+statement_list(X) ::= statement_line(A).
+{
+    CreateList(X, A);
+}
+
+statement_list(X) ::= statement_list(A) statement_line(B).
+{
+    ConcatList(X, A, B);
+}
+
+statement_line(X) ::= statement(A) NEWLINE.
+{
+    MovePointer(A, X);
+}
+
+statement_line(X) ::= error NEWLINE.
+{
+    X = nullptr;
+}
+
+statement(X) ::= ID(A) ASSIGN expression(B).
+{
+    EmplaceAST<CAssignAST>(X, A.stringId, Take(B));
+}
+
+statement(X) ::= PRINT expression_list(A).
+{
+    auto pList = Take(A);
+    EmplaceAST<CPrintAST>(X, std::move(*pList));
+}
+
+statement(X) ::= RETURN expression(A).
+{
+    EmplaceAST<CReturnAST>(X, Take(A));
+}
+
+statement(X) ::= IF expression(A) NEWLINE END.
+{
+    EmplaceAST<CIfAst>(X, Take(A));
+}
+
+statement(X) ::= IF expression(A) NEWLINE statement_list(B) END.
+{
+    auto pThenBody = Take(B);
+    EmplaceAST<CIfAst>(X, Take(A), std::move(*pThenBody));
+}
+
+statement(X) ::= IF expression(A) NEWLINE statement_list(B) ELSE NEWLINE statement_list(C) END.
+{
+    auto pThenBody = Take(B);
+    auto pElseBody = Take(C);
+    EmplaceAST<CIfAst>(X, Take(A), std::move(*pThenBody), std::move(*pElseBody));
+}
+
+statement(X) ::= WHILE expression(A) NEWLINE END.
+{
+    EmplaceAST<CWhileAst>(X, Take(A));
+}
+
+statement(X) ::= WHILE expression(A) NEWLINE statement_list(B) END.
+{
+    auto pBody = Take(B);
+    EmplaceAST<CWhileAst>(X, Take(A), std::move(*pBody));
+}
+
+statement(X) ::= DO NEWLINE WHILE expression(A) END.
+{
+    EmplaceAST<CRepeatAst>(X, Take(A));
+}
+
+statement(X) ::= DO NEWLINE statement_list(A) WHILE expression(B) END.
+{
+    auto pBody = Take(A);
+    EmplaceAST<CRepeatAst>(X, Take(B), std::move(*pBody));
+}
+
+expression_list(X) ::= expression(A).
+{
+    CreateList(X, A);
+}
+
+expression_list(X) ::= expression_list(A) COMMA expression(B).
+{
+    ConcatList(X, A, B);
+}
+
+expression(X) ::= ID(A) LPAREN RPAREN.
+{
+    EmplaceAST<CCallAST>(X, A.stringId, ExpressionList());
+}
+
+expression(X) ::= ID(A) LPAREN expression_list(B) RPAREN.
+{
+    auto pList = Take(B);
+    EmplaceAST<CCallAST>(X, A.stringId, std::move(*pList));
+}
+
+expression(X) ::= LPAREN expression(A) RPAREN.
+{
+    MovePointer(A, X);
+}
+
+expression(X) ::= expression(A) LESS expression(B).
+{
+    EmplaceAST<CBinaryExpressionAST>(X, Take(A), BinaryOperation::Less, Take(B));
+}
+
+expression(X) ::= expression(A) EQUALS expression(B).
+{
+    EmplaceAST<CBinaryExpressionAST>(X, Take(A), BinaryOperation::Equals, Take(B));
+}
+
+expression(X) ::= expression(A) AND expression(B).
+{
+    EmplaceAST<CBinaryExpressionAST>(X, Take(A), BinaryOperation::And, Take(B));
+}
+
+expression(X) ::= expression(A) OR expression(B).
+{
+    EmplaceAST<CBinaryExpressionAST>(X, Take(A), BinaryOperation::Or, Take(B));
+}
+
+expression(X) ::= expression(A) PLUS expression(B).
+{
+    EmplaceAST<CBinaryExpressionAST>(X, Take(A), BinaryOperation::Add, Take(B));
+}
+
+expression(X) ::= expression(A) MINUS expression(B).
+{
+    EmplaceAST<CBinaryExpressionAST>(X, Take(A), BinaryOperation::Substract, Take(B));
+}
+
+expression(X) ::= expression(A) STAR expression(B).
+{
+    EmplaceAST<CBinaryExpressionAST>(X, Take(A), BinaryOperation::Multiply, Take(B));
+}
+
+expression(X) ::= expression(A) SLASH expression(B).
+{
+    EmplaceAST<CBinaryExpressionAST>(X, Take(A), BinaryOperation::Divide, Take(B));
+}
+
+expression(X) ::= expression(A) PERCENT expression(B).
+{
+    EmplaceAST<CBinaryExpressionAST>(X, Take(A), BinaryOperation::Modulo, Take(B));
+}
+
+expression(X) ::= NOT expression(A).
+{
+    EmplaceAST<CUnaryExpressionAST>(X, UnaryOperation::Not, Take(A));
+}
+
+expression(X) ::= PLUS expression(A).
+{
+    EmplaceAST<CUnaryExpressionAST>(X, UnaryOperation::Plus, Take(A));
+}
+
+expression(X) ::= MINUS expression(A).
+{
+    EmplaceAST<CUnaryExpressionAST>(X, UnaryOperation::Minus, Take(A));
+}
+
+expression(X) ::= NUMBER(A).
+{
+    EmplaceAST<CLiteralAST>(X, CValue::FromDouble(A.value));
+}
+
+expression(X) ::= STRING(A).
+{
+    EmplaceAST<CLiteralAST>(X, pParse->GetStringLiteral(A.stringId));
+}
+
+expression(X) ::= BOOL(A).
+{
+    EmplaceAST<CLiteralAST>(X, CValue::FromBoolean(A.boolValue));
+}
+
+expression(X) ::= ID(A).
+{
+    EmplaceAST<CVariableRefAST>(X, A.stringId);
+}

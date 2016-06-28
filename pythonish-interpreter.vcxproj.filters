@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Driver">
+      <UniqueIdentifier>{55f9786a-0068-41a8-b9ea-91e16a06559c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Frontend">
+      <UniqueIdentifier>{e850bd5d-196a-4191-9339-b7460a57abee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Backend">
+      <UniqueIdentifier>{289faffd-beb5-4292-95d5-331f90deb04a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Grammar.cpp">
+      <Filter>Frontend</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Lexer.cpp">
+      <Filter>Frontend</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Parser.cpp">
+      <Filter>Frontend</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Parser_private.cpp">
+      <Filter>Frontend</Filter>
+    </ClCompile>
+    <ClCompile Include="src\VariablesScope.cpp">
+      <Filter>Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AST.cpp">
+      <Filter>Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Value.cpp">
+      <Filter>Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Interpreter.cpp">
+      <Filter>Driver</Filter>
+    </ClCompile>
+    <ClCompile Include="src\InterpreterContext.cpp">
+      <Filter>Driver</Filter>
+    </ClCompile>
+    <ClCompile Include="src\StringPool.cpp">
+      <Filter>Driver</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Driver</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Grammar.h">
+      <Filter>Frontend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Lexer.h">
+      <Filter>Frontend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Parser.h">
+      <Filter>Frontend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Parser_private.h">
+      <Filter>Frontend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Token.h">
+      <Filter>Frontend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\VariablesScope.h">
+      <Filter>Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\AST.h">
+      <Filter>Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Value.h">
+      <Filter>Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\InterpreterContext.h">
+      <Filter>Driver</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Interpreter.h">
+      <Filter>Driver</Filter>
+    </ClInclude>
+    <ClInclude Include="src\StringPool.h">
+      <Filter>Driver</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
