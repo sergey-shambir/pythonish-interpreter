@@ -8,7 +8,7 @@ namespace
 
 bool FuzzyEquals(double left, double right)
 {
-    return std::fabs(left - right) >= std::numeric_limits<double>::epsilon();
+    return std::fabs(left - right) < std::numeric_limits<double>::epsilon();
 }
 
 std::string ToPrettyString(double value)
@@ -32,12 +32,13 @@ std::string ToPrettyString(bool value)
     return value ? "true" : "false";
 }
 
-// Конвертирует значение в Boolean (C++ bool).
-struct BooleanConverter : boost::static_visitor<bool>
+// Конвертирует значение в true/false для инструкций условного выполнения.
+struct ConditionConverter : boost::static_visitor<bool>
 {
-    bool operator ()(double const& value) const { return FuzzyEquals(value, 0); }
+    bool operator ()(double const& value) const { return !FuzzyEquals(value, 0); }
     bool operator ()(bool const& value) const { return value; }
     bool operator ()(std::string const& value) const { return !value.empty(); }
+	// если условие вычислено с ошибкой, ветка then не выполняется.
     bool operator ()(std::exception_ptr const&) { return false; }
 };
 
@@ -87,14 +88,15 @@ CValue CValue::FromString(const std::string &value)
     return Value(value);
 }
 
-CValue::operator bool() const
-{
-    return ConvertToBool();
-}
-
 std::string CValue::ToString() const
 {
     return TryConvertToString();
+}
+
+bool CValue::AllowsThenBranch() const
+{
+	ConditionConverter converter;
+	return m_value.apply_visitor(converter);
 }
 
 void CValue::RethrowIfException() const
@@ -149,11 +151,11 @@ CValue CValue::operator !() const
 
 CValue CValue::operator <(const CValue &other) const
 {
-    if (AreBothValues<double>(*this, other))
+    if (BothValuesAre<double>(*this, other))
     {
         return Value(AsDouble() < other.AsDouble());
     }
-    if (AreBothValues<std::string>(*this, other))
+    if (BothValuesAre<std::string>(*this, other))
     {
         return Value(AsString() < other.AsString());
     }
@@ -162,15 +164,15 @@ CValue CValue::operator <(const CValue &other) const
 
 CValue CValue::operator ==(const CValue &other) const
 {
-    if (AreBothValues<double>(*this, other))
+    if (BothValuesAre<double>(*this, other))
     {
         return Value(FuzzyEquals(AsDouble(), other.AsDouble()));
     }
-    if (AreBothValues<std::string>(*this, other))
+    if (BothValuesAre<std::string>(*this, other))
     {
         return Value(AsString() == other.AsString());
     }
-    if (AreBothValues<bool>(*this, other))
+    if (BothValuesAre<bool>(*this, other))
     {
         return Value(AsBool() == other.AsBool());
     }
@@ -179,7 +181,7 @@ CValue CValue::operator ==(const CValue &other) const
 
 CValue CValue::operator &&(const CValue &other) const
 {
-    if (AreBothValues<bool>(*this, other))
+    if (BothValuesAre<bool>(*this, other))
     {
         return Value(AsBool() && other.AsBool());
     }
@@ -188,7 +190,7 @@ CValue CValue::operator &&(const CValue &other) const
 
 CValue CValue::operator ||(const CValue &other) const
 {
-    if (AreBothValues<bool>(*this, other))
+    if (BothValuesAre<bool>(*this, other))
     {
         return Value(AsBool() || other.AsBool());
     }
@@ -226,7 +228,7 @@ CValue CValue::operator +(const CValue &other) const
 
 CValue CValue::operator -(const CValue &other) const
 {
-    if (AreBothValues<double>(*this, other))
+    if (BothValuesAre<double>(*this, other))
     {
         return Value(AsDouble() - other.AsDouble());
     }
@@ -235,7 +237,7 @@ CValue CValue::operator -(const CValue &other) const
 
 CValue CValue::operator *(const CValue &other) const
 {
-    if (AreBothValues<double>(*this, other))
+    if (BothValuesAre<double>(*this, other))
     {
         return Value(AsDouble() * other.AsDouble());
     }
@@ -244,16 +246,17 @@ CValue CValue::operator *(const CValue &other) const
 
 CValue CValue::operator /(const CValue &other) const
 {
-    if (AreBothValues<double>(*this, other))
+    if (BothValuesAre<double>(*this, other))
     {
         return Value(AsDouble() / other.AsDouble());
     }
     return GenerateError(*this, other, "/");
 }
 
+// Для double оператор % не определён, но есть функция fmod.
 CValue CValue::operator %(const CValue &other) const
 {
-    if (AreBothValues<double>(*this, other))
+    if (BothValuesAre<double>(*this, other))
     {
         return Value(fmod(AsDouble(), other.AsDouble()));
     }
@@ -261,7 +264,7 @@ CValue CValue::operator %(const CValue &other) const
 }
 
 template<class TType>
-bool CValue::AreBothValues(const CValue &left, const CValue &right)
+bool CValue::BothValuesAre(const CValue &left, const CValue &right)
 {
     return (left.m_value.type() == typeid(TType))
             && (right.m_value.type() == typeid(TType));
@@ -312,10 +315,4 @@ std::string CValue::TryConvertToString() const
     StringConverter converter;
     std::string value = m_value.apply_visitor(converter);
     return value;
-}
-
-bool CValue::ConvertToBool() const
-{
-    BooleanConverter converter;
-    return m_value.apply_visitor(converter);
 }

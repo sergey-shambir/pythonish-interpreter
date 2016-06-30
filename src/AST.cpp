@@ -109,8 +109,10 @@ CValue CBinaryExpressionAST::Evaluate(CInterpreterContext &context) const
     case BinaryOperation::Equals:
         return a == b;
     case BinaryOperation::And:
+		// интерпретатор не поддерживает Short-Curcuit Evaluation
         return a && b;
     case BinaryOperation::Or:
+		// интерпретатор не поддерживает Short-Curcuit Evaluation
         return a || b;
     case BinaryOperation::Add:
         return a + b;
@@ -178,7 +180,7 @@ CIfAst::CIfAst(IExpressionASTUniquePtr &&condition, StatementsList &&thenBody, S
 void CIfAst::Execute(CInterpreterContext &context) const
 {
     CValue result = m_condition->Evaluate(context);
-    if (bool(result))
+    if (result.AllowsThenBranch())
     {
         ExecuteAll(m_thenBody, context);
     }
@@ -219,7 +221,7 @@ CWhileAst::CWhileAst(IExpressionASTUniquePtr &&condition, StatementsList &&body)
 
 void CWhileAst::Execute(CInterpreterContext &context) const
 {
-    while (bool(m_condition->Evaluate(context)))
+    while (m_condition->Evaluate(context).AllowsThenBranch())
     {
         ExecuteAll(m_body, context);
     }
@@ -237,7 +239,7 @@ void CRepeatAst::Execute(CInterpreterContext &context) const
     {
         ExecuteAll(m_body, context);
     }
-    while (bool(m_condition->Evaluate(context)));
+    while (m_condition->Evaluate(context).AllowsThenBranch());
 }
 
 CCallAST::CCallAST(unsigned nameId, ExpressionList && arguments)

@@ -12,6 +12,7 @@ public:
         std::string
     >;
 
+	// Конструктор без параметров нужен для упрощения хранения CValue в контейнерах STL
     CValue() = default;
 
     static CValue FromError(const std::exception_ptr &value);
@@ -22,17 +23,19 @@ public:
 
     // Преобразует в строку. Перебрасывает исключение, если объект хранит ошибку.
     std::string ToString()const;
-    // Перебрасывает исключение, если объект хранит ошибку.
+	// Возвращает true, если значение позволяет войти в ветку then
+	// в инструкциях условного выполнения.
+	bool AllowsThenBranch()const;
+    // Перевыбрасывает исключение, если объект хранит ошибку.
     void RethrowIfException()const;
 
-    // Прямое приведение типов,
+    // Получение значения известного типа.
     // Выбрасывает boost::bad_get в случае несоответствия типа ожидаемому.
     bool AsBool()const;
     const std::string & AsString()const;
     double AsDouble()const;
 
     // Унарные и бинарные операции с проверкой типов.
-    explicit operator bool()const;
     CValue operator +()const;
     CValue operator -()const;
     CValue operator !()const;
@@ -48,14 +51,13 @@ public:
 
 private:
     template<class TType>
-    static bool AreBothValues(const CValue &left, const CValue &right);
+    static bool BothValuesAre(const CValue &left, const CValue &right);
 
     static CValue GenerateError(const CValue &value, const char *description);
     static CValue GenerateError(const CValue &left, const CValue &right, const char *description);
 
     CValue(Value const& value);
     std::string TryConvertToString()const;
-    bool ConvertToBool()const;
 
     Value m_value;
 };
